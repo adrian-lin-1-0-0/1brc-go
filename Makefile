@@ -1,4 +1,4 @@
-SOURCE = basic
+SOURCE = basic concurrency
 
 .PHONY: build
 build:
