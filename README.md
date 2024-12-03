@@ -13,6 +13,6 @@ make run TARGET=basic
 ```
 
 ## TODO
-- [ ] Concurrency
+- [x] Concurrency
 - [ ] mmap
 - [ ] Other data structures
