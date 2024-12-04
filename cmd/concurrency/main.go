@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const input = "csv/weather_stations.csv"
@@ -33,8 +34,12 @@ func main() {
 		maps[i] = make(map[string]float32)
 	}
 
+	wg := sync.WaitGroup{}
+	wg.Add(len(channels))
+
 	for i := 0; i < len(channels); i++ {
 		go func(ch <-chan *lb.Data, i int) {
+			defer wg.Done()
 			for data := range ch {
 				value, err := strconv.ParseFloat(strings.TrimSpace(data.Value), 64)
 				if err != nil {
@@ -68,6 +73,8 @@ func main() {
 	for i := 0; i < len(channels); i++ {
 		close(channels[i])
 	}
+
+	wg.Wait()
 
 	keys := make([]string, 0, len(keyCnt))
 	for k := range keyCnt {
