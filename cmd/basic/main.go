@@ -1,6 +1,7 @@
 package main
 
 import (
+	"1brc-go/stream"
 	"bufio"
 	"bytes"
 	"fmt"
@@ -21,8 +22,7 @@ func main() {
 	}
 	defer file.Close()
 
-	var data = make(map[string]float32)
-	var keyCnt = make(map[string]int)
+	var data = make(map[string]*stream.Stream)
 
 	fileScanner := bufio.NewScanner(file)
 
@@ -39,8 +39,11 @@ func main() {
 			log.Fatalf("invalid value: %s", row[1])
 		}
 
-		data[key] += float32(value)
-		keyCnt[key]++
+		if _, ok := data[key]; !ok {
+			data[key] = stream.New()
+		}
+		data[key].Add(float64(value))
+
 	}
 
 	keys := make([]string, 0, len(data))
@@ -53,7 +56,8 @@ func main() {
 	writer := bufio.NewWriter(&output)
 
 	for _, k := range keys {
-		_, err := writer.WriteString(fmt.Sprintf("%s: %.2f\n", k, data[k]/float32(keyCnt[k])))
+		v := data[k]
+		_, err := writer.WriteString(fmt.Sprintf("%s: %.2f/%.2f/%.2f\n", k, v.Min(), v.Mean(), v.Max()))
 		if err != nil {
 			log.Fatal(err)
 		}

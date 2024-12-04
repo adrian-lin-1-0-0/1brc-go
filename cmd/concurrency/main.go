@@ -2,6 +2,7 @@ package main
 
 import (
 	"1brc-go/lb"
+	"1brc-go/stream"
 	"bufio"
 	"bytes"
 	"fmt"
@@ -24,14 +25,12 @@ func main() {
 	}
 	defer file.Close()
 
-	var keyCnt = make(map[string]int)
-
-	balancer := lb.New(runtime.NumCPU(), nil)
+	balancer := lb.New(runtime.NumCPU(), nil, 100)
 	channels := balancer.GetChannels()
-	maps := make([]map[string]float32, len(channels))
+	maps := make([]map[string]*stream.Stream, len(channels))
 
 	for i := 0; i < len(channels); i++ {
-		maps[i] = make(map[string]float32)
+		maps[i] = make(map[string]*stream.Stream)
 	}
 
 	wg := sync.WaitGroup{}
@@ -45,12 +44,21 @@ func main() {
 				if err != nil {
 					log.Fatalf("invalid value: %s", data.Value)
 				}
-				maps[i][data.Key] += float32(value)
+
+				if v, ok := maps[i][data.Key]; !ok {
+					v := stream.New()
+					maps[i][data.Key] = v
+					v.Add(float64(value))
+				} else {
+					v.Add(float64(value))
+				}
 			}
 		}(channels[i], i)
 	}
 
 	fileScanner := bufio.NewScanner(file)
+
+	var keySets = make(map[string]struct{})
 
 	for fileScanner.Scan() {
 		line := fileScanner.Text()
@@ -67,7 +75,7 @@ func main() {
 			Value: row[1],
 		})
 
-		keyCnt[key]++
+		keySets[key] = struct{}{}
 	}
 
 	for i := 0; i < len(channels); i++ {
@@ -76,8 +84,8 @@ func main() {
 
 	wg.Wait()
 
-	keys := make([]string, 0, len(keyCnt))
-	for k := range keyCnt {
+	keys := make([]string, 0, len(keySets))
+	for k := range keySets {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
@@ -88,7 +96,8 @@ func main() {
 
 	for _, k := range keys {
 		i := balancer.Hash([]byte(k)) % uint32(len(channels))
-		_, err := writer.WriteString(fmt.Sprintf("%s: %.2f\n", k, maps[i][k]/float32(keyCnt[k])))
+		v := maps[i][k]
+		_, err := writer.WriteString(fmt.Sprintf("%s: %.2f/%.2f/%.2f\n", k, v.Min(), v.Mean(), v.Max()))
 		if err != nil {
 			log.Fatal(err)
 		}

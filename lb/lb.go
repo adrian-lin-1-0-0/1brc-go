@@ -15,7 +15,7 @@ type Balancer struct {
 	size     int
 }
 
-func New(size int, fn Hash) *Balancer {
+func New(size int, fn Hash, bufferSize int) *Balancer {
 
 	if fn == nil {
 		fn = crc32.ChecksumIEEE
@@ -27,7 +27,7 @@ func New(size int, fn Hash) *Balancer {
 		channels: make([]chan *Data, size),
 	}
 	for i := 0; i < size; i++ {
-		b.channels[i] = make(chan *Data)
+		b.channels[i] = make(chan *Data, bufferSize)
 	}
 	return b
 }
